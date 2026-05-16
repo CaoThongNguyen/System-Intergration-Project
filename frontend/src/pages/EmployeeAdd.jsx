@@ -16,6 +16,11 @@ export default function EmployeeAdd() {
     Status: "Active",
   });
 
+  const [errors, setErrors] = useState({});
+
+  // Lấy ngày hôm nay dạng YYYY-MM-DD để giới hạn date picker
+  const today = new Date().toISOString().split("T")[0];
+
   const [departments, setDepartments] = useState([]);
   const [positions, setPositions] = useState([]);
 
@@ -36,8 +41,45 @@ export default function EmployeeAdd() {
       .then((data) => setPositions(data));
   };
 
+  // Hàm validate toàn bộ form trước khi submit
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Validate FullName: không được rỗng hoặc chỉ có khoảng trắng
+    if (!form.FullName || !form.FullName.trim()) {
+      newErrors.FullName = "Họ tên không được để trống.";
+    }
+
+    // Validate PhoneNumber: chỉ chứa số, 10-11 ký tự
+    const phoneRegex = /^[0-9]{10,11}$/;
+    if (!phoneRegex.test(form.PhoneNumber)) {
+      newErrors.PhoneNumber = "Số điện thoại phải là 10-11 chữ số (không chứa chữ hoặc ký tự đặc biệt).";
+    }
+
+    // Validate DateOfBirth: không được là ngày tương lai
+    if (form.DateOfBirth && form.DateOfBirth > today) {
+      newErrors.DateOfBirth = "Ngày sinh không được lớn hơn ngày hiện tại.";
+    }
+
+    // Validate HireDate: không được là ngày tương lai
+    if (form.HireDate && form.HireDate > today) {
+      newErrors.HireDate = "Ngày vào làm không được lớn hơn ngày hiện tại.";
+    }
+
+    // Validate Email: regex cơ bản
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (form.Email && !emailRegex.test(form.Email)) {
+      newErrors.Email = "Email không hợp lệ.";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!validateForm()) return; // Dừng nếu có lỗi validation
+
     fetch("http://localhost:5000/api/employees", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -70,11 +112,12 @@ export default function EmployeeAdd() {
                 <label className="form-label fw-bold">Full Name</label>
                 <input
                   id="FullName"
-                  className="form-control"
+                  className={`form-control ${errors.FullName ? 'is-invalid' : ''}`}
                   value={form.FullName}
                   onChange={handleChange}
                   required
                 />
+                {errors.FullName && <div className="invalid-feedback">{errors.FullName}</div>}
               </div>
 
               <div className="col-md-6 mb-3">
@@ -82,11 +125,12 @@ export default function EmployeeAdd() {
                 <input
                   id="Email"
                   type="email"
-                  className="form-control"
+                  className={`form-control ${errors.Email ? 'is-invalid' : ''}`}
                   value={form.Email}
                   onChange={handleChange}
                   required
                 />
+                {errors.Email && <div className="invalid-feedback">{errors.Email}</div>}
               </div>
             </div>
 
@@ -96,22 +140,28 @@ export default function EmployeeAdd() {
                 <input
                   type="date"
                   id="DateOfBirth"
-                  className="form-control"
+                  className={`form-control ${errors.DateOfBirth ? 'is-invalid' : ''}`}
                   value={form.DateOfBirth}
                   onChange={handleChange}
+                  max={today}
                   required
                 />
+                {errors.DateOfBirth && <div className="invalid-feedback">{errors.DateOfBirth}</div>}
               </div>
 
               <div className="col-md-6 mb-3">
                 <label className="form-label fw-bold">Phone Number</label>
                 <input
                   id="PhoneNumber"
-                  className="form-control"
+                  type="tel"
+                  className={`form-control ${errors.PhoneNumber ? 'is-invalid' : ''}`}
                   value={form.PhoneNumber}
                   onChange={handleChange}
+                  pattern="[0-9]{10,11}"
+                  title="Số điện thoại phải là 10-11 chữ số"
                   required
                 />
+                {errors.PhoneNumber && <div className="invalid-feedback">{errors.PhoneNumber}</div>}
               </div>
             </div>
 
@@ -175,11 +225,13 @@ export default function EmployeeAdd() {
                 <input
                   type="date"
                   id="HireDate"
-                  className="form-control"
+                  className={`form-control ${errors.HireDate ? 'is-invalid' : ''}`}
                   value={form.HireDate}
                   onChange={handleChange}
+                  max={today}
                   required
                 />
+                {errors.HireDate && <div className="invalid-feedback">{errors.HireDate}</div>}
               </div>
 
               <div className="col-md-6 mb-3">

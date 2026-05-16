@@ -30,7 +30,11 @@ export default function Dashboard() {
   const avgSalary = totalEmp > 0 ? Math.round(totalPayroll / totalEmp) : 0;
 
   // Chuẩn bị dữ liệu cho PieChart (Chi phí phòng ban)
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#E83E8C'];
+  const COLORS = [
+    '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#E83E8C', 
+    '#4CAF50', '#9C27B0', '#F44336', '#3F51B5', '#00BCD4', '#8BC34A', 
+    '#FF9800', '#795548', '#607D8B'
+  ];
   const pieData = reportData.department_costs.map(d => ({
     name: d.DepartmentName,
     value: d.TotalNet
@@ -119,16 +123,18 @@ export default function Dashboard() {
                       data={pieData}
                       cx="50%"
                       cy="50%"
+                      innerRadius={50}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                     >
                       {pieData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
                     <RechartsTooltip formatter={(value) => formatCurrency(value)} />
+                    <Legend wrapperStyle={{ fontSize: "12px" }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>

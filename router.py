@@ -1,5 +1,7 @@
 from flask import Blueprint, jsonify, request
 from config import get_sqlserver_connection, get_mysql_connection
+import re
+import datetime
 
 # Khởi tạo đối tượng Blueprint
 router = Blueprint("router", __name__)
@@ -250,6 +252,15 @@ def get_employees():
         
         rows = []
         for r in cur.fetchall():
+            # Chuyển đổi Status từ Vietnamese (SQL Server) sang English (frontend)
+            raw_status = r[6] if r[6] else ""
+            if raw_status in ("Đang làm việc", "Thử việc", "Thực tập"):
+                display_status = "Active"
+            elif raw_status in ("Nghỉ việc", "Nghỉ phép"):
+                display_status = "Inactive"
+            else:
+                display_status = "Active"
+
             rows.append({
                 "EmployeeID": r[0],
                 "FullName": r[1],
@@ -257,7 +268,7 @@ def get_employees():
                 "Position": r[3] if r[3] else "Chưa có",
                 "DepartmentID": r[4] if r[4] else None,
                 "PositionID": r[5] if r[5] else None,
-                "Status": r[6] if r[6] else "Active"
+                "Status": display_status
             })
             
         return jsonify(rows)
@@ -280,6 +291,15 @@ def get_employee(emp_id):
         if not r:
             return jsonify({"status": "error", "msg": "Không tìm thấy nhân viên!"}), 404
         
+        # Chuyển đổi Status từ Vietnamese (SQL Server) sang English (frontend)
+        raw_status = r[9] if r[9] else ""
+        if raw_status in ("Đang làm việc", "Thử việc", "Thực tập"):
+            display_status = "Active"
+        elif raw_status in ("Nghỉ việc", "Nghỉ phép"):
+            display_status = "Inactive"
+        else:
+            display_status = "Active"
+
         emp = {
             "EmployeeID": r[0],
             "FullName": r[1],
@@ -290,7 +310,7 @@ def get_employee(emp_id):
             "HireDate": str(r[6]) if r[6] else "",
             "DepartmentID": r[7] if r[7] else "",
             "PositionID": r[8] if r[8] else "",
-            "Status": r[9] if r[9] else "Active"
+            "Status": display_status
         }
         return jsonify(emp)
     except Exception as e:
@@ -301,40 +321,100 @@ def get_employee(emp_id):
 def add_employee():
     data = request.get_json()
     
+    # === VALIDATION SERVER-SIDE ===
+    errors = []
+    
+    # Validate FullName
+    full_name = (data.get("FullName") or "").strip()
+    if not full_name:
+        errors.append("Họ tên không được để trống.")
+    
+    # Validate PhoneNumber: chỉ chứa số, 10-11 ký tự
+    phone = data.get("PhoneNumber") or ""
+    if not re.match(r'^[0-9]{10,11}$', phone):
+        errors.append("Số điện thoại phải là 10-11 chữ số (không chứa chữ hoặc ký tự đặc biệt).")
+    
+    # Validate DateOfBirth: không được là ngày tương lai
+    dob = data.get("DateOfBirth")
+    if dob:
+        try:
+            dob_date = datetime.datetime.strptime(dob, "%Y-%m-%d").date()
+            if dob_date > datetime.date.today():
+                errors.append("Ngày sinh không được lớn hơn ngày hiện tại.")
+        except ValueError:
+            errors.append("Ngày sinh không hợp lệ (định dạng YYYY-MM-DD).")
+    
+    # Validate HireDate: không được là ngày tương lai
+    hire_date = data.get("HireDate")
+    if hire_date:
+        try:
+            hire_dt = datetime.datetime.strptime(hire_date, "%Y-%m-%d").date()
+            if hire_dt > datetime.date.today():
+                errors.append("Ngày vào làm không được lớn hơn ngày hiện tại.")
+        except ValueError:
+            errors.append("Ngày vào làm không hợp lệ (định dạng YYYY-MM-DD).")
+    
+    # Validate Email (cơ bản)
+    email = data.get("Email") or ""
+    if email and not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+        errors.append("Email không hợp lệ.")
+    
+    if errors:
+        return jsonify({"status": "error", "msg": " | ".join(errors)}), 400
+    # === END VALIDATION ===
+
     sql = get_sqlserver_connection()
     my = get_mysql_connection()
     sql.autocommit = False
     my.start_transaction()
 
     try:
+        # Chuyển đổi Status từ English (frontend) sang Vietnamese (SQL Server)
+        status_val = data.get("Status", "Active")
+        if status_val == "Active":
+            sql_status = "Đang làm việc"
+        elif status_val == "Inactive":
+            sql_status = "Nghỉ việc"
+        else:
+            sql_status = status_val
+
         cur = sql.cursor()
         cur.execute("""
             INSERT INTO Employees (FullName, DateOfBirth, Gender, PhoneNumber, Email, HireDate, DepartmentID, PositionID, Status)
             OUTPUT INSERTED.EmployeeID
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            data.get("FullName"),
+            full_name,
             data.get("DateOfBirth") or None,
             data.get("Gender"),
-            data.get("PhoneNumber"),
-            data.get("Email"),
+            phone,
+            email,
             data.get("HireDate") or None,
             data.get("DepartmentID") or None,
             data.get("PositionID") or None,
-            data.get("Status", "Active")
+            sql_status
         ))
         new_emp_id = int(cur.fetchone()[0])
+
+        status_val = data.get("Status", "Active")
+        if status_val == "Active":
+            my_status = "Đang làm việc"
+        elif status_val == "Inactive":
+            my_status = "Nghỉ việc"
+        else:
+            my_status = status_val
 
         # Đồng bộ sang MySQL (bảng employees_payroll)
         my_cur = my.cursor()
         my_cur.execute("""
-            INSERT INTO employees_payroll (EmployeeID, FullName, DepartmentID, PositionID)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO employees_payroll (EmployeeID, FullName, DepartmentID, PositionID, Status)
+            VALUES (%s, %s, %s, %s, %s)
         """, (
             new_emp_id,
-            data.get("FullName"),
+            full_name,
             data.get("DepartmentID") or None,
-            data.get("PositionID") or None
+            data.get("PositionID") or None,
+            my_status
         ))
 
         sql.commit()
@@ -350,40 +430,95 @@ def add_employee():
 def update_employee(emp_id):
     data = request.get_json()
     
+    # === VALIDATION SERVER-SIDE ===
+    errors = []
+    
+    full_name = (data.get("FullName") or "").strip()
+    if not full_name:
+        errors.append("Họ tên không được để trống.")
+    
+    phone = data.get("PhoneNumber") or ""
+    if not re.match(r'^[0-9]{10,11}$', phone):
+        errors.append("Số điện thoại phải là 10-11 chữ số.")
+    
+    dob = data.get("DateOfBirth")
+    if dob:
+        try:
+            dob_date = datetime.datetime.strptime(dob, "%Y-%m-%d").date()
+            if dob_date > datetime.date.today():
+                errors.append("Ngày sinh không được lớn hơn ngày hiện tại.")
+        except ValueError:
+            errors.append("Ngày sinh không hợp lệ.")
+    
+    hire_date = data.get("HireDate")
+    if hire_date:
+        try:
+            hire_dt = datetime.datetime.strptime(hire_date, "%Y-%m-%d").date()
+            if hire_dt > datetime.date.today():
+                errors.append("Ngày vào làm không được lớn hơn ngày hiện tại.")
+        except ValueError:
+            errors.append("Ngày vào làm không hợp lệ.")
+    
+    email = data.get("Email") or ""
+    if email and not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+        errors.append("Email không hợp lệ.")
+    
+    if errors:
+        return jsonify({"status": "error", "msg": " | ".join(errors)}), 400
+    # === END VALIDATION ===
+
     sql = get_sqlserver_connection()
     my = get_mysql_connection()
     sql.autocommit = False
     my.start_transaction()
 
     try:
+        # Chuyển đổi Status từ English (frontend) sang Vietnamese (SQL Server)
+        status_val = data.get("Status", "Active")
+        if status_val == "Active":
+            sql_status = "Đang làm việc"
+        elif status_val == "Inactive":
+            sql_status = "Nghỉ việc"
+        else:
+            sql_status = status_val
+
         cur = sql.cursor()
         cur.execute("""
             UPDATE Employees 
             SET FullName=?, DateOfBirth=?, Gender=?, PhoneNumber=?, Email=?, HireDate=?, DepartmentID=?, PositionID=?, Status=?
             WHERE EmployeeID=?
         """, (
-            data.get("FullName"),
+            full_name,
             data.get("DateOfBirth") or None,
             data.get("Gender"),
-            data.get("PhoneNumber"),
-            data.get("Email"),
+            phone,
+            email,
             data.get("HireDate") or None,
             data.get("DepartmentID") or None,
             data.get("PositionID") or None,
-            data.get("Status", "Active"),
+            sql_status,
             emp_id
         ))
+
+        status_val = data.get("Status", "Active")
+        if status_val == "Active":
+            my_status = "Đang làm việc"
+        elif status_val == "Inactive":
+            my_status = "Nghỉ việc"
+        else:
+            my_status = status_val
 
         # Đồng bộ sang MySQL
         my_cur = my.cursor()
         my_cur.execute("""
             UPDATE employees_payroll 
-            SET FullName=%s, DepartmentID=%s, PositionID=%s
+            SET FullName=%s, DepartmentID=%s, PositionID=%s, Status=%s
             WHERE EmployeeID=%s
         """, (
-            data.get("FullName"),
+            full_name,
             data.get("DepartmentID") or None,
             data.get("PositionID") or None,
+            my_status,
             emp_id
         ))
 
@@ -395,7 +530,7 @@ def update_employee(emp_id):
         my.rollback()
         return jsonify({"status": "error", "msg": str(e)}), 500
 
-# XÓA NHÂN VIÊN (Đồng bộ sang MySQL)
+# XÓA NHÂN VIÊN (Đồng bộ sang MySQL - xóa dữ liệu liên quan trước)
 @router.route("/api/employees/<int:emp_id>", methods=["DELETE"])
 def delete_employee(emp_id):
     sql = get_sqlserver_connection()
@@ -404,12 +539,18 @@ def delete_employee(emp_id):
     my.start_transaction()
 
     try:
-        # Xóa bên MySQL trước
         my_cur = my.cursor()
+        
+        # Xóa các bản ghi liên quan trong bảng salaries và attendance trước (MySQL)
+        my_cur.execute("DELETE FROM salaries WHERE EmployeeID = %s", (emp_id,))
+        my_cur.execute("DELETE FROM attendance WHERE EmployeeID = %s", (emp_id,))
+        
+        # Sau đó mới xóa nhân viên bên MySQL
         my_cur.execute("DELETE FROM employees_payroll WHERE EmployeeID = %s", (emp_id,))
 
-        # Xóa bên SQL Server
+        # Xóa bên SQL Server: xóa Dividends (FK constraint) trước, rồi mới xóa Employee
         cur = sql.cursor()
+        cur.execute("DELETE FROM Dividends WHERE EmployeeID = ?", (emp_id,))
         cur.execute("DELETE FROM Employees WHERE EmployeeID = ?", (emp_id,))
 
         sql.commit()
@@ -418,7 +559,88 @@ def delete_employee(emp_id):
     except Exception as e:
         sql.rollback()
         my.rollback()
-        return jsonify({"status": "error", "msg": str(e)}), 500
+        return jsonify({"status": "error", "msg": f"Không thể xóa nhân viên: {str(e)}"}), 500
+
+# ==========================================
+# API ĐỒNG BỘ DỮ LIỆU (SYNC CLEANUP)
+# ==========================================
+
+# ĐỒNG BỘ MySQL VỚI SQL Server - Xóa record mồ côi, thêm record thiếu
+@router.route("/api/employees/sync", methods=["POST"])
+def sync_employees():
+    sql = get_sqlserver_connection()
+    my = get_mysql_connection()
+    my.start_transaction()
+    
+    try:
+        # 1. Lấy danh sách EmployeeID từ SQL Server (nguồn chính)
+        sql_cur = sql.cursor()
+        sql_cur.execute("SELECT EmployeeID, FullName, DepartmentID, PositionID, Status FROM Employees")
+        sql_employees = {}
+        for r in sql_cur.fetchall():
+            status_val = r[4] if r[4] else "Active"
+            if status_val == "Active":
+                my_status = "Đang làm việc"
+            elif status_val == "Inactive":
+                my_status = "Nghỉ việc"
+            else:
+                my_status = status_val
+            sql_employees[r[0]] = {
+                "FullName": r[1],
+                "DepartmentID": r[2],
+                "PositionID": r[3],
+                "Status": my_status
+            }
+        
+        # 2. Lấy danh sách EmployeeID từ MySQL
+        my_cur = my.cursor()
+        my_cur.execute("SELECT EmployeeID FROM employees_payroll")
+        mysql_ids = set()
+        for r in my_cur.fetchall():
+            mysql_ids.add(r[0])
+        
+        sql_ids = set(sql_employees.keys())
+        
+        # 3. Xóa record mồ côi trong MySQL (có trong MySQL nhưng không có trong SQL Server)
+        orphan_ids = mysql_ids - sql_ids
+        removed_count = 0
+        for oid in orphan_ids:
+            # Xóa dữ liệu liên quan trước
+            my_cur.execute("DELETE FROM salaries WHERE EmployeeID = %s", (oid,))
+            my_cur.execute("DELETE FROM attendance WHERE EmployeeID = %s", (oid,))
+            my_cur.execute("DELETE FROM employees_payroll WHERE EmployeeID = %s", (oid,))
+            removed_count += 1
+        
+        # 4. Thêm record thiếu trong MySQL (có trong SQL Server nhưng không có trong MySQL)
+        missing_ids = sql_ids - mysql_ids
+        added_count = 0
+        for mid in missing_ids:
+            emp = sql_employees[mid]
+            my_cur.execute("""
+                INSERT INTO employees_payroll (EmployeeID, FullName, DepartmentID, PositionID, Status)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (mid, emp["FullName"], emp["DepartmentID"], emp["PositionID"], emp["Status"]))
+            added_count += 1
+        
+        # 5. Cập nhật thông tin cho các record đã tồn tại
+        existing_ids = sql_ids & mysql_ids
+        updated_count = 0
+        for eid in existing_ids:
+            emp = sql_employees[eid]
+            my_cur.execute("""
+                UPDATE employees_payroll 
+                SET FullName=%s, DepartmentID=%s, PositionID=%s, Status=%s
+                WHERE EmployeeID=%s
+            """, (emp["FullName"], emp["DepartmentID"], emp["PositionID"], emp["Status"], eid))
+            updated_count += 1
+        
+        my.commit()
+        
+        msg = f"Đồng bộ thành công! Đã xóa {removed_count} record mồ côi, thêm {added_count} record thiếu, cập nhật {updated_count} record."
+        return jsonify({"status": "success", "msg": msg, "removed": removed_count, "added": added_count, "updated": updated_count})
+    except Exception as e:
+        my.rollback()
+        return jsonify({"status": "error", "msg": f"Lỗi đồng bộ: {str(e)}"}), 500
 
 # ==========================================
 # API CHO LƯƠNG, CHẤM CÔNG, BÁO CÁO, CẢNH BÁO

@@ -51,9 +51,9 @@ export default function Employees() {
 
   // Logic lọc nâng cao: kết hợp tất cả bộ lọc
   const filteredEmployees = employees.filter((emp) => {
-    // Lọc theo tên (tìm kiếm không phân biệt hoa thường)
+    // Lọc theo tên (tìm kiếm không phân biệt hoa thường, xử lý null an toàn)
     const matchName = searchTerm === "" || 
-      emp.FullName.toLowerCase().includes(searchTerm.toLowerCase());
+      (emp.FullName || "").toLowerCase().includes(searchTerm.toLowerCase());
     
     // Lọc theo phòng ban
     const matchDept = filterDept === "" || 
@@ -90,7 +90,18 @@ export default function Employees() {
           <small className="text-muted">Quản lý thông tin, tìm kiếm và đồng bộ dữ liệu</small>
         </div>
         <div>
-          <button className="btn btn-outline-success me-2 bg-white shadow-sm">
+          <button 
+            className="btn btn-outline-success me-2 bg-white shadow-sm"
+            onClick={() => {
+              fetch("http://localhost:5000/api/employees/sync", { method: "POST" })
+                .then((res) => res.json())
+                .then((rs) => {
+                  alert(rs.msg);
+                  if (rs.status === "success") loadEmployees();
+                })
+                .catch((err) => alert("Lỗi đồng bộ: " + err));
+            }}
+          >
             <i className="bi bi-arrow-repeat me-2"></i> Đồng bộ PAYROLL
           </button>
           <Link to="/employees/add" className="btn btn-primary shadow-sm">

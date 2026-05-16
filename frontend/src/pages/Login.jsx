@@ -54,13 +54,6 @@ function Login({ onLogin }) {
             </div>
           )}
 
-          <div className="alert alert-info py-2 small mb-4">
-            <strong>Tài khoản Demo:</strong><br/>
-            - admin01 (Admin)<br/>
-            - hrm_lan (HR Manager)<br/>
-            - acc_tuan (Accountant)<br/>
-            - staff_hoa (Staff)
-          </div>
 
           <form onSubmit={handleLogin}>
             <div className="mb-3">
