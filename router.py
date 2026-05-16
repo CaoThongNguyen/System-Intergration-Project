@@ -31,7 +31,12 @@ def get_departments():
 @router.route("/api/departments", methods=["POST"])
 def add_department():
     data = request.get_json()
-    dept_name = data.get("DepartmentName")
+    dept_name = data.get("DepartmentName", "").strip()
+    
+    if not dept_name:
+        return jsonify({"status": "error", "msg": "Tên phòng ban không được để trống."}), 400
+    if dept_name.isdigit():
+        return jsonify({"status": "error", "msg": "Tên phòng ban không được chỉ chứa chữ số."}), 400
     
     sql = get_sqlserver_connection()
     my = get_mysql_connection()
@@ -40,13 +45,23 @@ def add_department():
 
     try:
         cur = sql.cursor()
-        # Insert vào SQL Server và lấy ra ID tự tăng vừa tạo
+
+        # Tìm ID phòng ban còn trống nhỏ nhất
         cur.execute("""
-            INSERT INTO Departments (DepartmentName) 
-            OUTPUT INSERTED.DepartmentID 
-            VALUES (?)
-        """, (dept_name,))
-        new_dept_id = int(cur.fetchone()[0])
+            SELECT MIN(t1.Id + 1)
+            FROM (SELECT 0 AS Id UNION ALL SELECT DepartmentID FROM Departments) t1
+            LEFT JOIN Departments t2 ON t1.Id + 1 = t2.DepartmentID
+            WHERE t2.DepartmentID IS NULL
+        """)
+        new_dept_id = cur.fetchone()[0]
+
+        # Insert vào SQL Server với IDENTITY_INSERT
+        cur.execute("SET IDENTITY_INSERT Departments ON")
+        cur.execute("""
+            INSERT INTO Departments (DepartmentID, DepartmentName) 
+            VALUES (?, ?)
+        """, (new_dept_id, dept_name))
+        cur.execute("SET IDENTITY_INSERT Departments OFF")
 
         # Đồng bộ Insert sang MySQL
         my_cur = my.cursor()
@@ -67,7 +82,12 @@ def add_department():
 @router.route("/api/departments/<int:dept_id>", methods=["PUT"])
 def update_department(dept_id):
     data = request.get_json()
-    dept_name = data.get("DepartmentName")
+    dept_name = data.get("DepartmentName", "").strip()
+    
+    if not dept_name:
+        return jsonify({"status": "error", "msg": "Tên phòng ban không được để trống."}), 400
+    if dept_name.isdigit():
+        return jsonify({"status": "error", "msg": "Tên phòng ban không được chỉ chứa chữ số."}), 400
     
     sql = get_sqlserver_connection()
     my = get_mysql_connection()
@@ -147,7 +167,12 @@ def get_positions():
 @router.route("/api/positions", methods=["POST"])
 def add_position():
     data = request.get_json()
-    pos_name = data.get("PositionName")
+    pos_name = data.get("PositionName", "").strip()
+    
+    if not pos_name:
+        return jsonify({"status": "error", "msg": "Tên vị trí không được để trống."}), 400
+    if pos_name.isdigit():
+        return jsonify({"status": "error", "msg": "Tên vị trí không được chỉ chứa chữ số."}), 400
     
     sql = get_sqlserver_connection()
     my = get_mysql_connection()
@@ -156,12 +181,22 @@ def add_position():
 
     try:
         cur = sql.cursor()
+        
+        # Tìm ID vị trí còn trống nhỏ nhất
         cur.execute("""
-            INSERT INTO Positions (PositionName) 
-            OUTPUT INSERTED.PositionID 
-            VALUES (?)
-        """, (pos_name,))
-        new_pos_id = int(cur.fetchone()[0])
+            SELECT MIN(t1.Id + 1)
+            FROM (SELECT 0 AS Id UNION ALL SELECT PositionID FROM Positions) t1
+            LEFT JOIN Positions t2 ON t1.Id + 1 = t2.PositionID
+            WHERE t2.PositionID IS NULL
+        """)
+        new_pos_id = cur.fetchone()[0]
+
+        cur.execute("SET IDENTITY_INSERT Positions ON")
+        cur.execute("""
+            INSERT INTO Positions (PositionID, PositionName) 
+            VALUES (?, ?)
+        """, (new_pos_id, pos_name))
+        cur.execute("SET IDENTITY_INSERT Positions OFF")
 
         my_cur = my.cursor()
         my_cur.execute("""
@@ -181,7 +216,12 @@ def add_position():
 @router.route("/api/positions/<int:pos_id>", methods=["PUT"])
 def update_position(pos_id):
     data = request.get_json()
-    pos_name = data.get("PositionName")
+    pos_name = data.get("PositionName", "").strip()
+    
+    if not pos_name:
+        return jsonify({"status": "error", "msg": "Tên vị trí không được để trống."}), 400
+    if pos_name.isdigit():
+        return jsonify({"status": "error", "msg": "Tên vị trí không được chỉ chứa chữ số."}), 400
     
     sql = get_sqlserver_connection()
     my = get_mysql_connection()
@@ -379,11 +419,23 @@ def add_employee():
             sql_status = status_val
 
         cur = sql.cursor()
+
+        # Tìm ID nhân viên còn trống nhỏ nhất (lấp đầy khoảng trống khi nhân viên bị xóa)
         cur.execute("""
-            INSERT INTO Employees (FullName, DateOfBirth, Gender, PhoneNumber, Email, HireDate, DepartmentID, PositionID, Status)
-            OUTPUT INSERTED.EmployeeID
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            SELECT MIN(t1.Id + 1)
+            FROM (SELECT 0 AS Id UNION ALL SELECT EmployeeID FROM Employees) t1
+            LEFT JOIN Employees t2 ON t1.Id + 1 = t2.EmployeeID
+            WHERE t2.EmployeeID IS NULL
+        """)
+        next_id = cur.fetchone()[0]
+
+        # Bật IDENTITY_INSERT để được phép chèn ID thủ công
+        cur.execute("SET IDENTITY_INSERT Employees ON")
+        cur.execute("""
+            INSERT INTO Employees (EmployeeID, FullName, DateOfBirth, Gender, PhoneNumber, Email, HireDate, DepartmentID, PositionID, Status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
+            next_id,
             full_name,
             data.get("DateOfBirth") or None,
             data.get("Gender"),
@@ -394,7 +446,8 @@ def add_employee():
             data.get("PositionID") or None,
             sql_status
         ))
-        new_emp_id = int(cur.fetchone()[0])
+        cur.execute("SET IDENTITY_INSERT Employees OFF")
+        new_emp_id = next_id
 
         status_val = data.get("Status", "Active")
         if status_val == "Active":
