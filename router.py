@@ -5,8 +5,25 @@ from config import get_sqlserver_connection, get_mysql_connection
 router = Blueprint("router", __name__)
 
 # ==========================================
-# 6. API CRUD CHO PHÒNG BAN (DEPARTMENTS)
+# API CRUD CHO PHÒNG BAN (DEPARTMENTS)
 # ==========================================
+
+# LẤY DANH SÁCH PHÒNG BAN (từ SQL Server HUMAN_2025)
+@router.route("/api/departments", methods=["GET"])
+def get_departments():
+    sql = get_sqlserver_connection()
+    try:
+        cur = sql.cursor()
+        cur.execute("SELECT DepartmentID, DepartmentName FROM Departments ORDER BY DepartmentID")
+        rows = []
+        for r in cur.fetchall():
+            rows.append({
+                "DepartmentID": r[0],
+                "DepartmentName": r[1]
+            })
+        return jsonify(rows)
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
 
 # THÊM PHÒNG BAN MỚI (Đồng bộ sang MySQL)
 @router.route("/api/departments", methods=["POST"])
@@ -104,8 +121,25 @@ def delete_department(dept_id):
 
 
 # ==========================================
-# 7. API CRUD CHO VỊ TRÍ (POSITIONS)
+# API CRUD CHO VỊ TRÍ (POSITIONS)
 # ==========================================
+
+# LẤY DANH SÁCH VỊ TRÍ (từ SQL Server HUMAN_2025)
+@router.route("/api/positions", methods=["GET"])
+def get_positions():
+    sql = get_sqlserver_connection()
+    try:
+        cur = sql.cursor()
+        cur.execute("SELECT PositionID, PositionName FROM Positions ORDER BY PositionID")
+        rows = []
+        for r in cur.fetchall():
+            rows.append({
+                "PositionID": r[0],
+                "PositionName": r[1]
+            })
+        return jsonify(rows)
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
 
 # THÊM VỊ TRÍ (Đồng bộ sang MySQL)
 @router.route("/api/positions", methods=["POST"])
@@ -193,18 +227,21 @@ def delete_position(pos_id):
         sql.rollback()
         my.rollback()
         return jsonify({"status": "error", "msg": str(e)}), 500
-    
-    # ==========================================
-# API LẤY DANH SÁCH NHÂN VIÊN
+
 # ==========================================
+# API CRUD CHO NHÂN VIÊN (EMPLOYEES)
+# ==========================================
+
+# LẤY DANH SÁCH NHÂN VIÊN
 @router.route("/api/employees", methods=["GET"])
 def get_employees():
     sql = get_sqlserver_connection()
     try:
         cur = sql.cursor()
-        # Lấy dữ liệu nhân viên kèm tên phòng ban và chức vụ
+        # Lấy dữ liệu nhân viên kèm tên phòng ban, chức vụ, và các ID/trạng thái để lọc
         cur.execute("""
-            SELECT e.EmployeeID, e.FullName, d.DepartmentName, p.PositionName
+            SELECT e.EmployeeID, e.FullName, d.DepartmentName, p.PositionName,
+                   e.DepartmentID, e.PositionID, e.Status
             FROM Employees e
             LEFT JOIN Departments d ON e.DepartmentID = d.DepartmentID
             LEFT JOIN Positions p ON e.PositionID = p.PositionID
@@ -217,9 +254,505 @@ def get_employees():
                 "EmployeeID": r[0],
                 "FullName": r[1],
                 "Department": r[2] if r[2] else "Chưa có",
-                "Position": r[3] if r[3] else "Chưa có"
+                "Position": r[3] if r[3] else "Chưa có",
+                "DepartmentID": r[4] if r[4] else None,
+                "PositionID": r[5] if r[5] else None,
+                "Status": r[6] if r[6] else "Active"
             })
             
         return jsonify(rows)
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+# LẤY CHI TIẾT 1 NHÂN VIÊN (theo ID)
+@router.route("/api/employees/<int:emp_id>", methods=["GET"])
+def get_employee(emp_id):
+    sql = get_sqlserver_connection()
+    try:
+        cur = sql.cursor()
+        cur.execute("""
+            SELECT EmployeeID, FullName, DateOfBirth, Gender, PhoneNumber, 
+                   Email, HireDate, DepartmentID, PositionID, Status
+            FROM Employees
+            WHERE EmployeeID = ?
+        """, (emp_id,))
+        r = cur.fetchone()
+        if not r:
+            return jsonify({"status": "error", "msg": "Không tìm thấy nhân viên!"}), 404
+        
+        emp = {
+            "EmployeeID": r[0],
+            "FullName": r[1],
+            "DateOfBirth": str(r[2]) if r[2] else "",
+            "Gender": r[3] if r[3] else "",
+            "PhoneNumber": r[4] if r[4] else "",
+            "Email": r[5] if r[5] else "",
+            "HireDate": str(r[6]) if r[6] else "",
+            "DepartmentID": r[7] if r[7] else "",
+            "PositionID": r[8] if r[8] else "",
+            "Status": r[9] if r[9] else "Active"
+        }
+        return jsonify(emp)
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+# THÊM NHÂN VIÊN MỚI (Đồng bộ sang MySQL)
+@router.route("/api/employees", methods=["POST"])
+def add_employee():
+    data = request.get_json()
+    
+    sql = get_sqlserver_connection()
+    my = get_mysql_connection()
+    sql.autocommit = False
+    my.start_transaction()
+
+    try:
+        cur = sql.cursor()
+        cur.execute("""
+            INSERT INTO Employees (FullName, DateOfBirth, Gender, PhoneNumber, Email, HireDate, DepartmentID, PositionID, Status)
+            OUTPUT INSERTED.EmployeeID
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            data.get("FullName"),
+            data.get("DateOfBirth") or None,
+            data.get("Gender"),
+            data.get("PhoneNumber"),
+            data.get("Email"),
+            data.get("HireDate") or None,
+            data.get("DepartmentID") or None,
+            data.get("PositionID") or None,
+            data.get("Status", "Active")
+        ))
+        new_emp_id = int(cur.fetchone()[0])
+
+        # Đồng bộ sang MySQL (bảng employees_payroll)
+        my_cur = my.cursor()
+        my_cur.execute("""
+            INSERT INTO employees_payroll (EmployeeID, FullName, DepartmentID, PositionID)
+            VALUES (%s, %s, %s, %s)
+        """, (
+            new_emp_id,
+            data.get("FullName"),
+            data.get("DepartmentID") or None,
+            data.get("PositionID") or None
+        ))
+
+        sql.commit()
+        my.commit()
+        return jsonify({"status": "success", "msg": f"Thêm nhân viên thành công (ID: {new_emp_id})!"})
+    except Exception as e:
+        sql.rollback()
+        my.rollback()
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+# CẬP NHẬT NHÂN VIÊN (Đồng bộ sang MySQL)
+@router.route("/api/employees/<int:emp_id>", methods=["PUT"])
+def update_employee(emp_id):
+    data = request.get_json()
+    
+    sql = get_sqlserver_connection()
+    my = get_mysql_connection()
+    sql.autocommit = False
+    my.start_transaction()
+
+    try:
+        cur = sql.cursor()
+        cur.execute("""
+            UPDATE Employees 
+            SET FullName=?, DateOfBirth=?, Gender=?, PhoneNumber=?, Email=?, HireDate=?, DepartmentID=?, PositionID=?, Status=?
+            WHERE EmployeeID=?
+        """, (
+            data.get("FullName"),
+            data.get("DateOfBirth") or None,
+            data.get("Gender"),
+            data.get("PhoneNumber"),
+            data.get("Email"),
+            data.get("HireDate") or None,
+            data.get("DepartmentID") or None,
+            data.get("PositionID") or None,
+            data.get("Status", "Active"),
+            emp_id
+        ))
+
+        # Đồng bộ sang MySQL
+        my_cur = my.cursor()
+        my_cur.execute("""
+            UPDATE employees_payroll 
+            SET FullName=%s, DepartmentID=%s, PositionID=%s
+            WHERE EmployeeID=%s
+        """, (
+            data.get("FullName"),
+            data.get("DepartmentID") or None,
+            data.get("PositionID") or None,
+            emp_id
+        ))
+
+        sql.commit()
+        my.commit()
+        return jsonify({"status": "success", "msg": "Cập nhật nhân viên thành công!"})
+    except Exception as e:
+        sql.rollback()
+        my.rollback()
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+# XÓA NHÂN VIÊN (Đồng bộ sang MySQL)
+@router.route("/api/employees/<int:emp_id>", methods=["DELETE"])
+def delete_employee(emp_id):
+    sql = get_sqlserver_connection()
+    my = get_mysql_connection()
+    sql.autocommit = False
+    my.start_transaction()
+
+    try:
+        # Xóa bên MySQL trước
+        my_cur = my.cursor()
+        my_cur.execute("DELETE FROM employees_payroll WHERE EmployeeID = %s", (emp_id,))
+
+        # Xóa bên SQL Server
+        cur = sql.cursor()
+        cur.execute("DELETE FROM Employees WHERE EmployeeID = ?", (emp_id,))
+
+        sql.commit()
+        my.commit()
+        return jsonify({"status": "success", "msg": "Xóa nhân viên thành công!"})
+    except Exception as e:
+        sql.rollback()
+        my.rollback()
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+# ==========================================
+# API CHO LƯƠNG, CHẤM CÔNG, BÁO CÁO, CẢNH BÁO
+# ==========================================
+
+# LẤY DANH SÁCH CHẤM CÔNG
+@router.route("/api/attendance", methods=["GET"])
+def get_attendance():
+    my = get_mysql_connection()
+    try:
+        cur = my.cursor()
+        cur.execute("""
+            SELECT a.AttendanceID, a.EmployeeID, a.WorkDays, a.AbsentDays, a.LeaveDays, a.AttendanceMonth,
+                   e.FullName, d.DepartmentName
+            FROM attendance a
+            JOIN employees_payroll e ON a.EmployeeID = e.EmployeeID
+            LEFT JOIN departments_payroll d ON e.DepartmentID = d.DepartmentID
+            ORDER BY a.AttendanceMonth DESC, e.FullName
+        """)
+        rows = []
+        for r in cur.fetchall():
+            rows.append({
+                "AttendanceID": r[0],
+                "EmployeeID": r[1],
+                "WorkDays": r[2],
+                "AbsentDays": r[3],
+                "LeaveDays": r[4],
+                "AttendanceMonth": r[5],
+                "FullName": r[6],
+                "DepartmentName": r[7] if r[7] else "Chưa có"
+            })
+        return jsonify(rows)
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+# LẤY BẢNG LƯƠNG
+@router.route("/api/salaries", methods=["GET"])
+def get_salaries():
+    my = get_mysql_connection()
+    try:
+        cur = my.cursor()
+        cur.execute("""
+            SELECT s.SalaryID, s.EmployeeID, s.SalaryMonth, s.BaseSalary, s.Bonus, s.Deductions, s.NetSalary,
+                   e.FullName, d.DepartmentName
+            FROM salaries s
+            JOIN employees_payroll e ON s.EmployeeID = e.EmployeeID
+            LEFT JOIN departments_payroll d ON e.DepartmentID = d.DepartmentID
+            ORDER BY s.SalaryMonth DESC, e.FullName
+        """)
+        rows = []
+        for r in cur.fetchall():
+            rows.append({
+                "SalaryID": r[0],
+                "EmployeeID": r[1],
+                "SalaryMonth": r[2],
+                "BaseSalary": float(r[3]),
+                "Bonus": float(r[4]),
+                "Deductions": float(r[5]),
+                "NetSalary": float(r[6]),
+                "FullName": r[7],
+                "DepartmentName": r[8] if r[8] else "Chưa có",
+                "Status": "Đã duyệt"
+            })
+        return jsonify(rows)
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+# LẤY BÁO CÁO
+@router.route("/api/reports", methods=["GET"])
+def get_reports():
+    sql = get_sqlserver_connection()
+    my = get_mysql_connection()
+    try:
+        # 1. Giới tính từ SQL Server
+        sql_cur = sql.cursor()
+        sql_cur.execute("SELECT Gender, COUNT(*) FROM Employees GROUP BY Gender")
+        gender_dist = {}
+        for r in sql_cur.fetchall():
+            gender = r[0] if r[0] else "Unknown"
+            gender_dist[gender] = r[1]
+            
+        # 2. Chi phí theo phòng ban từ MySQL
+        my_cur = my.cursor()
+        my_cur.execute("""
+            SELECT d.DepartmentName, COUNT(DISTINCT s.EmployeeID) as EmployeeCount,
+                   SUM(s.BaseSalary) as TotalBase, SUM(s.Bonus) as TotalBonus, SUM(s.NetSalary) as TotalNet
+            FROM salaries s
+            JOIN employees_payroll e ON s.EmployeeID = e.EmployeeID
+            LEFT JOIN departments_payroll d ON e.DepartmentID = d.DepartmentID
+            GROUP BY d.DepartmentName
+        """)
+        dept_costs = []
+        for r in my_cur.fetchall():
+            dept_costs.append({
+                "DepartmentName": r[0] if r[0] else "Chưa có",
+                "EmployeeCount": r[1],
+                "TotalBase": float(r[2] or 0),
+                "TotalBonus": float(r[3] or 0),
+                "TotalNet": float(r[4] or 0)
+            })
+            
+        # 3. Xu hướng quỹ lương 6 tháng
+        my_cur.execute("""
+            SELECT SalaryMonth, SUM(NetSalary) as TotalSalary
+            FROM salaries
+            GROUP BY SalaryMonth
+            ORDER BY SalaryMonth DESC
+            LIMIT 6
+        """)
+        salary_trend = []
+        for r in my_cur.fetchall():
+            salary_trend.append({
+                "Month": r[0],
+                "TotalSalary": float(r[1] or 0)
+            })
+        salary_trend.reverse() # Sort chronological
+        
+        return jsonify({
+            "gender_distribution": gender_dist,
+            "department_costs": dept_costs,
+            "salary_trend": salary_trend
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+# LẤY CẢNH BÁO
+@router.route("/api/alerts", methods=["GET"])
+def get_alerts():
+    sql = get_sqlserver_connection()
+    my = get_mysql_connection()
+    import datetime
+    current_month = datetime.datetime.now().month
+    
+    try:
+        # 1. Sinh nhật và kỷ niệm từ SQL Server
+        sql_cur = sql.cursor()
+        sql_cur.execute(f"SELECT FullName, DateOfBirth, HireDate FROM Employees WHERE MONTH(DateOfBirth) = {current_month} OR MONTH(HireDate) = {current_month}")
+        events = []
+        for r in sql_cur.fetchall():
+            dob = r[1]
+            hire = r[2]
+            if dob and dob.month == current_month:
+                events.append({"type": "birthday", "FullName": r[0], "Date": str(dob)})
+            if hire and hire.month == current_month:
+                events.append({"type": "anniversary", "FullName": r[0], "Date": str(hire)})
+                
+        # 2. Nghỉ phép nhiều từ MySQL
+        my_cur = my.cursor()
+        my_cur.execute("""
+            SELECT e.FullName, d.DepartmentName, a.LeaveDays 
+            FROM attendance a 
+            JOIN employees_payroll e ON a.EmployeeID = e.EmployeeID 
+            LEFT JOIN departments_payroll d ON e.DepartmentID = d.DepartmentID 
+            WHERE a.LeaveDays > 3
+        """)
+        leave_alerts = []
+        for r in my_cur.fetchall():
+            leave_alerts.append({
+                "FullName": r[0],
+                "DepartmentName": r[1] if r[1] else "Chưa có",
+                "LeaveDays": r[2]
+            })
+            
+        return jsonify({
+            "events": events,
+            "leave_alerts": leave_alerts
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+# ==========================================
+# API PHÂN QUYỀN (RBAC) - ACCESS CONTROL DB
+# ==========================================
+from config import get_access_control_connection
+
+@router.route("/api/security/matrix", methods=["GET"])
+def get_security_matrix():
+    ac_conn = get_access_control_connection()
+    try:
+        cur = ac_conn.cursor(dictionary=True)
+        # Lấy roles
+        cur.execute("SELECT role_id, role_code, role_name FROM roles ORDER BY role_id")
+        roles = cur.fetchall()
+        
+        # Lấy functions
+        cur.execute("SELECT function_id, function_code, function_name FROM functions ORDER BY function_id")
+        functions = cur.fetchall()
+        
+        # Lấy ma trận (role_id có function_id nào)
+        cur.execute("""
+            SELECT DISTINCT rp.role_id, fp.function_id
+            FROM role_permissions rp
+            JOIN function_permissions fp ON rp.func_perm_id = fp.func_perm_id
+        """)
+        matrix_rows = cur.fetchall()
+        
+        return jsonify({
+            "roles": roles,
+            "functions": functions,
+            "matrix": matrix_rows
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+@router.route("/api/security/matrix", methods=["POST"])
+def update_security_matrix():
+    data = request.json
+    changes = data.get("changes", [])
+    if not changes:
+        return jsonify({"status": "success", "msg": "Không có thay đổi nào."})
+        
+    ac_conn = get_access_control_connection()
+    try:
+        cur = ac_conn.cursor(dictionary=True)
+        for change in changes:
+            role_id = change.get("role_id")
+            function_id = change.get("function_id")
+            checked = change.get("checked")
+            
+            # Lấy tất cả func_perm_id của function_id này
+            cur.execute("SELECT func_perm_id FROM function_permissions WHERE function_id = %s", (function_id,))
+            func_perms = cur.fetchall()
+            if not func_perms:
+                continue
+                
+            if checked:
+                # Thêm tất cả quyền (nếu chưa có)
+                for fp in func_perms:
+                    func_perm_id = fp['func_perm_id']
+                    cur.execute("INSERT IGNORE INTO role_permissions (role_id, func_perm_id) VALUES (%s, %s)", (role_id, func_perm_id))
+            else:
+                # Xóa tất cả quyền
+                func_perm_ids = [str(fp['func_perm_id']) for fp in func_perms]
+                in_clause = ",".join(func_perm_ids)
+                if in_clause:
+                    cur.execute(f"DELETE FROM role_permissions WHERE role_id = %s AND func_perm_id IN ({in_clause})", (role_id,))
+                
+        ac_conn.commit()
+        return jsonify({"status": "success", "msg": "Cập nhật phân quyền thành công!"})
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+# ==========================================
+# API ĐĂNG NHẬP VÀ QUẢN LÝ NGƯỜI DÙNG (ACCESS CONTROL DB)
+# ==========================================
+@router.route("/api/login", methods=["POST"])
+def login():
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
+    
+    if not username or not password:
+        return jsonify({"status": "error", "msg": "Vui lòng nhập tài khoản và mật khẩu."}), 400
+        
+    ac_conn = get_access_control_connection()
+    try:
+        cur = ac_conn.cursor(dictionary=True)
+        # Bỏ qua hash ở môi trường demo này (hoặc có thể so khớp đơn giản)
+        # Tra cứu user và role
+        cur.execute("""
+            SELECT u.user_id, u.username, u.full_name, r.role_id, r.role_code, r.role_name
+            FROM users u
+            LEFT JOIN user_roles ur ON u.user_id = ur.user_id
+            LEFT JOIN roles r ON ur.role_id = r.role_id
+            WHERE u.username = %s AND u.is_active = 1
+        """, (username,))
+        
+        user = cur.fetchone()
+        
+        if not user:
+            return jsonify({"status": "error", "msg": "Tài khoản không tồn tại hoặc đã bị khóa!"}), 401
+            
+        # Lấy danh sách function (quyền) của user
+        # Dựa vào role_id, lấy danh sách function_code
+        functions = []
+        if user["role_id"]:
+            cur.execute("""
+                SELECT DISTINCT f.function_code
+                FROM role_permissions rp
+                JOIN function_permissions fp ON rp.func_perm_id = fp.func_perm_id
+                JOIN functions f ON fp.function_id = f.function_id
+                WHERE rp.role_id = %s
+            """, (user["role_id"],))
+            functions = [row["function_code"] for row in cur.fetchall()]
+            
+        return jsonify({
+            "status": "success",
+            "user": {
+                "user_id": user["user_id"],
+                "username": user["username"],
+                "full_name": user["full_name"],
+                "role_id": user["role_id"],
+                "role_code": user["role_code"],
+                "role_name": user["role_name"],
+                "permissions": functions
+            }
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+@router.route("/api/security/users", methods=["GET"])
+def get_security_users():
+    ac_conn = get_access_control_connection()
+    try:
+        cur = ac_conn.cursor(dictionary=True)
+        cur.execute("""
+            SELECT u.user_id, u.username, u.full_name, u.email, r.role_id, r.role_code, r.role_name
+            FROM users u
+            LEFT JOIN user_roles ur ON u.user_id = ur.user_id
+            LEFT JOIN roles r ON ur.role_id = r.role_id
+            ORDER BY u.user_id
+        """)
+        users = cur.fetchall()
+        return jsonify(users)
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
+@router.route("/api/security/assign-role", methods=["POST"])
+def assign_user_role():
+    data = request.json
+    user_id = data.get("user_id")
+    role_id = data.get("role_id")
+    
+    if not user_id or not role_id:
+        return jsonify({"status": "error", "msg": "Thiếu thông tin người dùng hoặc vai trò."}), 400
+        
+    ac_conn = get_access_control_connection()
+    try:
+        cur = ac_conn.cursor()
+        # Xóa role cũ
+        cur.execute("DELETE FROM user_roles WHERE user_id = %s", (user_id,))
+        # Thêm role mới
+        cur.execute("INSERT INTO user_roles (user_id, role_id) VALUES (%s, %s)", (user_id, role_id))
+        ac_conn.commit()
+        return jsonify({"status": "success", "msg": "Gán vai trò thành công!"})
     except Exception as e:
         return jsonify({"status": "error", "msg": str(e)}), 500

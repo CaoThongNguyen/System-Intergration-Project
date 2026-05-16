@@ -4,8 +4,11 @@ import { Link } from "react-router-dom";
 export default function Employees() {
   const [employees, setEmployees] = useState([]);
   
-  // States cho các bộ lọc (Phục vụ UI)
+  // States cho các bộ lọc
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterDept, setFilterDept] = useState("");
+  const [filterPos, setFilterPos] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [departments, setDepartments] = useState([]);
   const [positions, setPositions] = useState([]);
 
@@ -46,6 +49,38 @@ export default function Employees() {
       });
   };
 
+  // Logic lọc nâng cao: kết hợp tất cả bộ lọc
+  const filteredEmployees = employees.filter((emp) => {
+    // Lọc theo tên (tìm kiếm không phân biệt hoa thường)
+    const matchName = searchTerm === "" || 
+      emp.FullName.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Lọc theo phòng ban
+    const matchDept = filterDept === "" || 
+      String(emp.DepartmentID) === filterDept;
+    
+    // Lọc theo vị trí
+    const matchPos = filterPos === "" || 
+      String(emp.PositionID) === filterPos;
+    
+    // Lọc theo trạng thái
+    const matchStatus = filterStatus === "" || 
+      emp.Status === filterStatus;
+
+    return matchName && matchDept && matchPos && matchStatus;
+  });
+
+  // Kiểm tra xem có bộ lọc nào đang hoạt động không
+  const hasActiveFilters = searchTerm || filterDept || filterPos || filterStatus;
+
+  // Hàm xóa tất cả bộ lọc
+  const clearFilters = () => {
+    setSearchTerm("");
+    setFilterDept("");
+    setFilterPos("");
+    setFilterStatus("");
+  };
+
   return (
     <div className="container-fluid" style={{ backgroundColor: "#f8f9fa", minHeight: "100vh", padding: "20px" }}>
       {/* Header & Các nút hành động chính */}
@@ -81,25 +116,56 @@ export default function Employees() {
               </div>
             </div>
             <div className="col-md-3">
-              <select className="form-select text-muted">
+              <select 
+                className="form-select" 
+                value={filterDept} 
+                onChange={(e) => setFilterDept(e.target.value)}
+                style={{ color: filterDept ? '#212529' : '#6c757d' }}
+              >
                 <option value="">Tất cả Phòng ban</option>
                 {departments.map(d => <option key={d.DepartmentID} value={d.DepartmentID}>{d.DepartmentName}</option>)}
               </select>
             </div>
             <div className="col-md-3">
-              <select className="form-select text-muted">
+              <select 
+                className="form-select" 
+                value={filterPos} 
+                onChange={(e) => setFilterPos(e.target.value)}
+                style={{ color: filterPos ? '#212529' : '#6c757d' }}
+              >
                 <option value="">Tất cả Vị trí</option>
                 {positions.map(p => <option key={p.PositionID} value={p.PositionID}>{p.PositionName}</option>)}
               </select>
             </div>
             <div className="col-md-3">
-              <select className="form-select text-muted">
+              <select 
+                className="form-select" 
+                value={filterStatus} 
+                onChange={(e) => setFilterStatus(e.target.value)}
+                style={{ color: filterStatus ? '#212529' : '#6c757d' }}
+              >
                 <option value="">Tất cả Trạng thái</option>
                 <option value="Active">Đang làm việc</option>
                 <option value="Inactive">Đã nghỉ việc</option>
               </select>
             </div>
           </div>
+
+          {/* Hiện thông tin lọc + nút xóa bộ lọc */}
+          {hasActiveFilters && (
+            <div className="d-flex align-items-center mt-3 pt-2 border-top">
+              <small className="text-muted me-2">
+                <i className="bi bi-funnel-fill me-1"></i>
+                Hiển thị <strong className="text-primary">{filteredEmployees.length}</strong> / {employees.length} nhân viên
+              </small>
+              <button 
+                className="btn btn-sm btn-outline-secondary ms-auto" 
+                onClick={clearFilters}
+              >
+                <i className="bi bi-x-circle me-1"></i> Xóa bộ lọc
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -119,7 +185,7 @@ export default function Employees() {
                 </tr>
               </thead>
               <tbody>
-                {employees.length > 0 ? employees.map((emp) => (
+                {filteredEmployees.length > 0 ? filteredEmployees.map((emp) => (
                   <tr key={emp.EmployeeID}>
                     <td className="text-center fw-bold text-secondary">#{emp.EmployeeID}</td>
                     <td>
@@ -133,8 +199,12 @@ export default function Employees() {
                     <td>{emp.Department || "N/A"}</td>
                     <td>{emp.Position || "N/A"}</td>
                     <td>
-                      <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">
-                        Active
+                      <span className={`badge ${
+                        emp.Status === "Active" 
+                          ? "bg-success bg-opacity-10 text-success border border-success border-opacity-25" 
+                          : "bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25"
+                      } px-2 py-1`}>
+                        {emp.Status === "Active" ? "Active" : "Inactive"}
                       </span>
                     </td>
                     <td className="text-center">
@@ -149,8 +219,21 @@ export default function Employees() {
                 )) : (
                   <tr>
                     <td colSpan="6" className="text-center text-muted py-5">
-                      <i className="bi bi-inbox fs-1 d-block mb-2"></i>
-                      Chưa có dữ liệu nhân viên hoặc Backend chưa kết nối.
+                      {hasActiveFilters ? (
+                        <>
+                          <i className="bi bi-search fs-1 d-block mb-2"></i>
+                          Không tìm thấy nhân viên phù hợp với bộ lọc.
+                          <br />
+                          <button className="btn btn-link btn-sm mt-2" onClick={clearFilters}>
+                            Xóa bộ lọc để xem tất cả
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <i className="bi bi-inbox fs-1 d-block mb-2"></i>
+                          Chưa có dữ liệu nhân viên hoặc Backend chưa kết nối.
+                        </>
+                      )}
                     </td>
                   </tr>
                 )}

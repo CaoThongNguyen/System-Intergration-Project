@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 
-import Dashboard from "./pages/Dashboard";
+import AdminDashboard from "./pages/AdminDashboard";
+import HRDashboard from "./pages/HRDashboard";
+import PayrollDashboard from "./pages/PayrollDashboard";
+import EmployeeDashboard from "./pages/EmployeeDashboard";
+
 import Employees from "./pages/Employees";
 import EmployeeAdd from "./pages/EmployeeAdd";
 import EmployeeEdit from "./pages/EmployeeEdit";
@@ -14,31 +18,58 @@ import Reports from "./pages/Reports";
 import Alerts from "./pages/Alerts";
 import Security from "./pages/Security";
 
-// Import trang Login mới
 import Login from "./pages/Login";
 
 function App() {
-  // State quản lý đăng nhập (Mặc định là false - chưa đăng nhập)
-  // Thực tế sau này bạn sẽ lấy từ localStorage hoặc Token
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+
+  useEffect(() => {
+    // Đọc thông tin user từ localStorage nếu đã đăng nhập trước đó
+    const user = localStorage.getItem("currentUser");
+    if (user) {
+      const parsedUser = JSON.parse(user);
+      setIsAuthenticated(true);
+      setUserRole(parsedUser.role_code);
+    }
+  }, []);
+
+  const handleLogin = (user) => {
+    localStorage.setItem("currentUser", JSON.stringify(user));
+    setIsAuthenticated(true);
+    setUserRole(user.role_code);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("currentUser");
+    setIsAuthenticated(false);
+    setUserRole(null);
+  };
+
+  // Component render Dashboard tương ứng với Role
+  const RoleBasedDashboard = () => {
+    if (userRole === "ADMIN") return <AdminDashboard />;
+    if (userRole === "HR_MANAGER") return <HRDashboard />;
+    if (userRole === "ACCOUNTANT") return <PayrollDashboard />;
+    if (userRole === "STAFF") return <EmployeeDashboard />;
+    return <AdminDashboard />; // Mặc định
+  };
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* 1. ROUTE PUBLIC: Không có Layout */}
         <Route 
           path="/login" 
-          element={<Login onLogin={() => setIsAuthenticated(true)} />} 
+          element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <Navigate to="/" />} 
         />
 
-        {/* 2. ROUTES PRIVATE: Bọc Layout và kiểm tra đăng nhập */}
         <Route
           path="/*"
           element={
             isAuthenticated ? (
-              <Layout>
+              <Layout onLogout={handleLogout}>
                 <Routes>
-                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/" element={<RoleBasedDashboard />} />
                   <Route path="/employees" element={<Employees />} />
                   <Route path="/employees/add" element={<EmployeeAdd />} />
                   <Route path="/employees/:id" element={<EmployeeEdit />} />
@@ -52,7 +83,6 @@ function App() {
                 </Routes>
               </Layout>
             ) : (
-              // Nếu chưa đăng nhập mà cố vào, tự động đá về trang /login
               <Navigate to="/login" replace />
             )
           }

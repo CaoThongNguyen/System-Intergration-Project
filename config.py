@@ -37,3 +37,20 @@ def get_mysql_connection():
     except Exception as e:
         print("Lỗi kết nối MySQL:", str(e))
         raise
+
+# ==========================================
+# KẾT NỐI MYSQL (ACCESS CONTROL)
+# ==========================================
+def get_access_control_connection():
+    try:
+        conn = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="123456",
+            database="access_control_db",
+            autocommit=True
+        )
+        return conn
+    except Exception as e:
+        print("Lỗi kết nối Access Control:", str(e))
+        raise
