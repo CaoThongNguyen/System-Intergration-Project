@@ -3,17 +3,17 @@ import mysql.connector
 
 # ==========================================
 # KẾT NỐI SQL SERVER (HUMAN)
-# Hàm này tạo kết nối tới DB HUMAN bằng ODBC
+# Hàm này tạo kết nối tới DB HUMAN_2025 bằng ODBC
 # ==========================================
 def get_sqlserver_connection():
     try:
         conn = pyodbc.connect(
             "DRIVER={ODBC Driver 17 for SQL Server};"
-            "SERVER=localhost;"          # Tên server
-            "DATABASE=HUMAN;"            # Tên database Human Resource
-            "UID=sa;"                    # Username SQL Server
-            "PWD=123456;"                # Password
-            "timeout=5"
+            "SERVER=localhost\\SQLEXPRESS;"  # Giữ nguyên instance SQLEXPRESS của máy bạn
+            "DATABASE=HUMAN_2025;"           # Đã cập nhật theo SSMS mới
+            "UID=sa;"                    
+            "PWD=123456;",               
+            timeout=5
         )
         return conn
     except Exception as e:
@@ -30,8 +30,8 @@ def get_mysql_connection():
             host="localhost",
             user="root",
             password="123456",
-            database="PAYROLL",
-            autocommit=False            # REQUIRED cho 2-phase-commit
+            database="PAYROLL",              # Đã cập nhật theo Navicat mới
+            autocommit=False             
         )
         return conn
     except Exception as e:

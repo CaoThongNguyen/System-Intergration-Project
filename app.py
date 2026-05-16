@@ -1,31 +1,13 @@
-from flask import Flask, render_template
-from router import router              # Import các API
+from flask import Flask
+from router import router
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
-app.register_blueprint(router)         # Đăng ký router chứa API
+# Bật CORS để cho phép giao diện React (cổng 3000) gọi được API từ Flask (cổng 5000)
+CORS(app) 
 
-# ==========================================
-# TRANG DANH SÁCH NHÂN VIÊN
-# ==========================================
-@app.route("/")
-def index():
-    return render_template("employees.html")
-
-# ==========================================
-# TRANG THÊM NHÂN VIÊN
-# ==========================================
-@app.route("/employees/add")
-def employees_add_page():
-    return render_template("employee_add.html")
-
-# ==========================================
-# TRANG CHỈNH SỬA (TRUYỀN ID)
-# ==========================================
-@app.route("/employees/<int:emp_id>")
-def employee_edit_page(emp_id):
-    return render_template("employee_edit.html", emp_id=emp_id)
+# Đăng ký toàn bộ các API (như /api/employees, /api/departments...) đã viết trong router.py
+app.register_blueprint(router)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True) 
