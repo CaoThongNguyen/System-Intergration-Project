@@ -409,6 +409,19 @@ def add_employee():
     my.start_transaction()
 
     try:
+        cur = sql.cursor()
+
+        # Kiểm tra trùng lặp Email và PhoneNumber
+        if email:
+            cur.execute("SELECT COUNT(*) FROM Employees WHERE Email = ?", (email,))
+            if cur.fetchone()[0] > 0:
+                return jsonify({"status": "error", "msg": "Email này đã tồn tại trong hệ thống."}), 400
+                
+        if phone:
+            cur.execute("SELECT COUNT(*) FROM Employees WHERE PhoneNumber = ?", (phone,))
+            if cur.fetchone()[0] > 0:
+                return jsonify({"status": "error", "msg": "Số điện thoại này đã tồn tại trong hệ thống."}), 400
+
         # Chuyển đổi Status từ English (frontend) sang Vietnamese (SQL Server)
         status_val = data.get("Status", "Active")
         if status_val == "Active":
@@ -526,6 +539,19 @@ def update_employee(emp_id):
     my.start_transaction()
 
     try:
+        cur = sql.cursor()
+
+        # Kiểm tra trùng lặp Email và PhoneNumber
+        if email:
+            cur.execute("SELECT COUNT(*) FROM Employees WHERE Email = ? AND EmployeeID != ?", (email, emp_id))
+            if cur.fetchone()[0] > 0:
+                return jsonify({"status": "error", "msg": "Email này đã tồn tại trong hệ thống."}), 400
+                
+        if phone:
+            cur.execute("SELECT COUNT(*) FROM Employees WHERE PhoneNumber = ? AND EmployeeID != ?", (phone, emp_id))
+            if cur.fetchone()[0] > 0:
+                return jsonify({"status": "error", "msg": "Số điện thoại này đã tồn tại trong hệ thống."}), 400
+
         # Chuyển đổi Status từ English (frontend) sang Vietnamese (SQL Server)
         status_val = data.get("Status", "Active")
         if status_val == "Active":
@@ -958,12 +984,12 @@ def login():
             FROM users u
             LEFT JOIN user_roles ur ON u.user_id = ur.user_id
             LEFT JOIN roles r ON ur.role_id = r.role_id
-            WHERE u.username = %s AND u.is_active = 1
+            WHERE BINARY u.username = %s AND u.is_active = 1
         """, (username,))
         
         user = cur.fetchone()
         
-        if not user:
+        if not user or user["username"] != username:
             return jsonify({"status": "error", "msg": "Tài khoản không tồn tại hoặc đã bị khóa!"}), 401
             
         # Lấy danh sách function (quyền) của user

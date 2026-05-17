@@ -13,7 +13,7 @@ export default function Layout({ children, onLogout }) {
             <div style={{ display: "flex" }}>
                 <Sidebar />
 
-                <main style={{ flexGrow: 1 }} className="p-4">
+                <main style={{ flexGrow: 1, minWidth: 0 }} className="p-4">
                     {children}
                 </main>
             </div>

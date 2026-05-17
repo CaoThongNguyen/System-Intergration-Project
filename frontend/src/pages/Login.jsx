@@ -28,7 +28,7 @@ function Login({ onLogin }) {
         setLoading(false);
         if (data.status === "success") {
           onLogin(data.user);
-          navigate("/"); 
+          navigate("/");
         } else {
           setError(data.msg || "Đăng nhập thất bại");
         }
@@ -41,13 +41,13 @@ function Login({ onLogin }) {
 
   return (
     <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
-      <div 
-        className="card shadow-lg border-0" 
+      <div
+        className="card shadow-lg border-0"
         style={{ width: "100%", maxWidth: "420px", borderRadius: "15px" }}
       >
         <div className="card-body p-5">
           <h2 className="text-center mb-4 text-primary fw-bold">ĐĂNG NHẬP</h2>
-          
+
           {error && (
             <div className="alert alert-danger py-2 text-center" role="alert">
               {error}
@@ -58,23 +58,23 @@ function Login({ onLogin }) {
           <form onSubmit={handleLogin}>
             <div className="mb-3">
               <label className="form-label fw-semibold text-secondary">Tên đăng nhập</label>
-              <input 
-                type="text" 
-                className="form-control form-control-lg" 
-                placeholder="Nhập tài khoản..." 
-                value={username} 
-                onChange={(e) => setUsername(e.target.value)} 
+              <input
+                type="text"
+                className="form-control form-control-lg"
+                placeholder="Nhập tài khoản..."
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
               />
             </div>
 
             <div className="mb-4">
               <label className="form-label fw-semibold text-secondary">Mật khẩu</label>
-              <input 
-                type="password" 
-                className="form-control form-control-lg" 
-                placeholder="Nhập 123456..." 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
+              <input
+                type="password"
+                className="form-control form-control-lg"
+                placeholder="Nhập mật khẩu..."
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
 

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Alerts() {
   const [alerts, setAlerts] = useState({ events: [], leave_alerts: [] });
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch("http://localhost:5000/api/alerts")
@@ -62,7 +64,7 @@ export default function Alerts() {
                       <small className="text-muted">Hệ thống</small>
                     </div>
                     <p className="text-muted mb-1 small">Hãy thường xuyên kiểm tra báo cáo lương để phát hiện chênh lệch bất thường.</p>
-                    <button className="btn btn-sm btn-outline-warning mt-1 text-dark">Xem báo cáo lương</button>
+                    <button className="btn btn-sm btn-outline-warning mt-1 text-dark" onClick={() => navigate('/reports')}>Xem báo cáo lương</button>
                   </div>
                 </div>
 

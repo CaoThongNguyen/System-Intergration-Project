@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
 
 export default function Payroll() {
   const [salaries, setSalaries] = useState([]);
@@ -55,7 +56,35 @@ export default function Payroll() {
   };
 
   const handleExport = () => {
-    alert("Đã xuất Báo Cáo thành công (Giả lập xuất file CSV/Excel)!");
+    if (filteredSalaries.length === 0) {
+      alert("Không có dữ liệu để xuất!");
+      return;
+    }
+
+    // Chuẩn bị dữ liệu để xuất
+    const dataToExport = filteredSalaries.map((salary, index) => ({
+      "STT": index + 1,
+      "Kỳ Lương": salary.SalaryMonth,
+      "Mã NV": salary.EmployeeID,
+      "Họ Tên": salary.FullName,
+      "Phòng Ban": salary.DepartmentName || "Chưa có",
+      "Lương Cơ Bản (VNĐ)": salary.BaseSalary,
+      "Phụ Cấp (VNĐ)": salary.Bonus,
+      "Khấu Trừ (VNĐ)": salary.Deductions,
+      "Thực Lãnh (VNĐ)": salary.NetSalary,
+      "Trạng Thái": salary.Status
+    }));
+
+    // Tạo worksheet và workbook
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "BangLuong");
+
+    // Đặt tên file theo kỳ lương nếu có
+    const fileName = `Bang_Luong_${monthFilter ? monthFilter.replace("-", "_") : "Tat_Ca"}.xlsx`;
+    
+    // Xuất file
+    XLSX.writeFile(workbook, fileName);
   };
 
   const handleShowDetail = (salary) => {

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 export default function Employees() {
   const [employees, setEmployees] = useState([]);
-  
+
   // States cho các bộ lọc
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDept, setFilterDept] = useState("");
@@ -25,12 +25,12 @@ export default function Employees() {
     fetch("http://localhost:5000/api/departments")
       .then((r) => r.json())
       .then((data) => setDepartments(data))
-      .catch(() => {});
-      
+      .catch(() => { });
+
     fetch("http://localhost:5000/api/positions")
       .then((r) => r.json())
       .then((data) => setPositions(data))
-      .catch(() => {});
+      .catch(() => { });
   };
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function Employees() {
 
   const deleteEmployee = (id) => {
     if (!window.confirm("Bạn chắc chắn muốn xóa nhân viên này? (Hệ thống sẽ chặn nếu có dữ liệu Lương/Cổ tức)")) return;
-    
+
     fetch(`http://localhost:5000/api/employees/${id}`, { method: "DELETE" })
       .then((res) => res.json())
       .then((rs) => {
@@ -52,19 +52,19 @@ export default function Employees() {
   // Logic lọc nâng cao: kết hợp tất cả bộ lọc
   const filteredEmployees = employees.filter((emp) => {
     // Lọc theo tên (tìm kiếm không phân biệt hoa thường, xử lý null an toàn)
-    const matchName = searchTerm === "" || 
+    const matchName = searchTerm === "" ||
       (emp.FullName || "").toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     // Lọc theo phòng ban
-    const matchDept = filterDept === "" || 
+    const matchDept = filterDept === "" ||
       String(emp.DepartmentID) === filterDept;
-    
+
     // Lọc theo vị trí
-    const matchPos = filterPos === "" || 
+    const matchPos = filterPos === "" ||
       String(emp.PositionID) === filterPos;
-    
+
     // Lọc theo trạng thái
-    const matchStatus = filterStatus === "" || 
+    const matchStatus = filterStatus === "" ||
       emp.Status === filterStatus;
 
     return matchName && matchDept && matchPos && matchStatus;
@@ -90,20 +90,6 @@ export default function Employees() {
           <small className="text-muted">Quản lý thông tin, tìm kiếm và đồng bộ dữ liệu</small>
         </div>
         <div>
-          <button 
-            className="btn btn-outline-success me-2 bg-white shadow-sm"
-            onClick={() => {
-              fetch("http://localhost:5000/api/employees/sync", { method: "POST" })
-                .then((res) => res.json())
-                .then((rs) => {
-                  alert(rs.msg);
-                  if (rs.status === "success") loadEmployees();
-                })
-                .catch((err) => alert("Lỗi đồng bộ: " + err));
-            }}
-          >
-            <i className="bi bi-arrow-repeat me-2"></i> Đồng bộ PAYROLL
-          </button>
           <Link to="/employees/add" className="btn btn-primary shadow-sm">
             <i className="bi bi-plus-lg me-2"></i> Thêm Nhân viên
           </Link>
@@ -117,19 +103,19 @@ export default function Employees() {
             <div className="col-md-3">
               <div className="input-group">
                 <span className="input-group-text bg-white border-end-0"><i className="bi bi-search text-muted"></i></span>
-                <input 
-                  type="text" 
-                  className="form-control border-start-0 ps-0" 
-                  placeholder="Tìm kiếm theo tên..." 
+                <input
+                  type="text"
+                  className="form-control border-start-0 ps-0"
+                  placeholder="Tìm kiếm theo tên..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
             <div className="col-md-3">
-              <select 
-                className="form-select" 
-                value={filterDept} 
+              <select
+                className="form-select"
+                value={filterDept}
                 onChange={(e) => setFilterDept(e.target.value)}
                 style={{ color: filterDept ? '#212529' : '#6c757d' }}
               >
@@ -138,9 +124,9 @@ export default function Employees() {
               </select>
             </div>
             <div className="col-md-3">
-              <select 
-                className="form-select" 
-                value={filterPos} 
+              <select
+                className="form-select"
+                value={filterPos}
                 onChange={(e) => setFilterPos(e.target.value)}
                 style={{ color: filterPos ? '#212529' : '#6c757d' }}
               >
@@ -149,9 +135,9 @@ export default function Employees() {
               </select>
             </div>
             <div className="col-md-3">
-              <select 
-                className="form-select" 
-                value={filterStatus} 
+              <select
+                className="form-select"
+                value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 style={{ color: filterStatus ? '#212529' : '#6c757d' }}
               >
@@ -169,8 +155,8 @@ export default function Employees() {
                 <i className="bi bi-funnel-fill me-1"></i>
                 Hiển thị <strong className="text-primary">{filteredEmployees.length}</strong> / {employees.length} nhân viên
               </small>
-              <button 
-                className="btn btn-sm btn-outline-secondary ms-auto" 
+              <button
+                className="btn btn-sm btn-outline-secondary ms-auto"
                 onClick={clearFilters}
               >
                 <i className="bi bi-x-circle me-1"></i> Xóa bộ lọc
@@ -210,11 +196,10 @@ export default function Employees() {
                     <td>{emp.Department || "N/A"}</td>
                     <td>{emp.Position || "N/A"}</td>
                     <td>
-                      <span className={`badge ${
-                        emp.Status === "Active" 
-                          ? "bg-success bg-opacity-10 text-success border border-success border-opacity-25" 
+                      <span className={`badge ${emp.Status === "Active"
+                          ? "bg-success bg-opacity-10 text-success border border-success border-opacity-25"
                           : "bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25"
-                      } px-2 py-1`}>
+                        } px-2 py-1`}>
                         {emp.Status === "Active" ? "Active" : "Inactive"}
                       </span>
                     </td>

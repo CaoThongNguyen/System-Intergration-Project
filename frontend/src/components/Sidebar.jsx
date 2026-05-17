@@ -20,12 +20,12 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="bg-white border-end d-flex flex-column" style={{ width: "260px", height: "100vh" }}>
+    <div className="bg-white border-end d-flex flex-column" style={{ width: "260px", flexShrink: 0, height: "100vh" }}>
       <div className="overflow-auto flex-grow-1 pb-4">
         <div className="list-group list-group-flush px-2 py-3">
-          
+
           <Link to="/" className={`list-group-item list-group-item-action border-0 rounded mb-1 fw-medium ${isActive("/")}`}>
-            <i className="bi bi-speedometer2 me-2"></i> Tổng quan (Dashboard)
+            <i className="bi bi-speedometer2 me-2"></i> Tổng quan
           </Link>
 
           {/* NHÓM QUẢN LÝ NHÂN SỰ - Chỉ hiện nếu có quyền EMP_MGT */}
@@ -82,7 +82,7 @@ export default function Sidebar() {
 
         </div>
       </div>
-      
+
       {/* User profile ở dưới cùng */}
       <div className="p-3 border-top bg-light">
         <div className="d-flex align-items-center">

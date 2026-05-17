@@ -23,7 +23,7 @@ export default function Security() {
       .then(data => {
         setRoles(data.roles || []);
         setFunctions(data.functions || []);
-        
+
         const map = {};
         if (data.matrix) {
           data.matrix.forEach(item => {
@@ -31,7 +31,7 @@ export default function Security() {
           });
         }
         setMatrixMap(map);
-        setInitialMap({...map});
+        setInitialMap({ ...map });
         setLoading(false);
       })
       .catch(err => {
@@ -43,7 +43,7 @@ export default function Security() {
   const handleToggle = (roleId, funcId) => {
     // Admin (role_code === 'ADMIN' hoặc role_id === 1) thì ko cho sửa
     if (roleId === 1) return;
-    
+
     const key = `${roleId}-${funcId}`;
     setMatrixMap(prev => ({
       ...prev,
@@ -59,7 +59,7 @@ export default function Security() {
         const key = `${r.role_id}-${f.function_id}`;
         const initial = !!initialMap[key];
         const current = !!matrixMap[key];
-        
+
         if (initial !== current) {
           changes.push({
             role_id: r.role_id,
@@ -84,7 +84,7 @@ export default function Security() {
       .then(data => {
         if (data.status === "success") {
           alert(data.msg);
-          setInitialMap({...matrixMap});
+          setInitialMap({ ...matrixMap });
         } else {
           alert("Lỗi: " + data.msg);
         }
@@ -139,8 +139,8 @@ export default function Security() {
     <div className="container-fluid" style={{ backgroundColor: "#f8f9fa", minHeight: "100vh", padding: "20px" }}>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h3 className="fw-bold mb-0">Bảo mật & Phân quyền (RBAC)</h3>
-          <small className="text-muted">Quản lý vai trò, quyền hạn và nhật ký hệ thống (Audit Logs)</small>
+          <h3 className="fw-bold mb-0">Bảo mật & Phân quyền</h3>
+          <small className="text-muted">Quản lý vai trò, quyền hạn và nhật ký hệ thống</small>
         </div>
       </div>
 
@@ -149,7 +149,7 @@ export default function Security() {
         <div className="col-md-12">
           <div className="card border-0 shadow-sm rounded-3">
             <div className="card-header bg-white border-bottom-0 pt-4 pb-2 d-flex justify-content-between align-items-center">
-              <h5 className="fw-bold text-dark mb-0"><i className="bi bi-shield-lock-fill text-primary me-2"></i>Ma trận Quyền hạn (Role-Based Access)</h5>
+              <h5 className="fw-bold text-dark mb-0"><i className="bi bi-shield-lock-fill text-primary me-2"></i>Ma trận Quyền hạn</h5>
               <button className="btn btn-sm btn-primary shadow-sm" onClick={handleSaveChanges} disabled={loading}>
                 <i className="bi bi-save me-1"></i> Lưu thay đổi
               </button>
@@ -179,9 +179,9 @@ export default function Security() {
                           const isAdmin = r.role_id === 1; // Giả định ID 1 là Admin
                           return (
                             <td key={r.role_id}>
-                              <input 
-                                className="form-check-input border-secondary" 
-                                type="checkbox" 
+                              <input
+                                className="form-check-input border-secondary"
+                                type="checkbox"
                                 checked={isChecked}
                                 onChange={() => handleToggle(r.role_id, f.function_id)}
                                 disabled={isAdmin}
@@ -257,7 +257,7 @@ export default function Security() {
         <div className="col-md-12 mt-4">
           <div className="card border-0 shadow-sm rounded-3">
             <div className="card-header bg-white border-bottom-0 pt-4 pb-2 d-flex justify-content-between align-items-center">
-              <h5 className="fw-bold text-dark mb-0"><i className="bi bi-journal-code text-secondary me-2"></i>Nhật ký Hệ thống (Audit Logs)</h5>
+              <h5 className="fw-bold text-dark mb-0"><i className="bi bi-journal-code text-secondary me-2"></i>Nhật ký Hệ thống</h5>
               <div className="input-group" style={{ width: "250px" }}>
                 <input type="date" className="form-control form-control-sm" />
                 <button className="btn btn-sm btn-secondary"><i className="bi bi-search"></i></button>
@@ -269,7 +269,7 @@ export default function Security() {
                   <tr>
                     <th className="py-3 px-4">THỜI GIAN</th>
                     <th className="py-3">TÀI KHOẢN</th>
-                    <th className="py-3">HÀNH ĐỘNG (ACTION)</th>
+                    <th className="py-3">HÀNH ĐỘNG</th>
                     <th className="py-3">ĐỊA CHỈ IP</th>
                     <th className="py-3 text-center">TRẠNG THÁI</th>
                   </tr>

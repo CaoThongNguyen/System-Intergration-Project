@@ -31,8 +31,8 @@ export default function Dashboard() {
 
   // Chuẩn bị dữ liệu cho PieChart (Chi phí phòng ban)
   const COLORS = [
-    '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#E83E8C', 
-    '#4CAF50', '#9C27B0', '#F44336', '#3F51B5', '#00BCD4', '#8BC34A', 
+    '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#E83E8C',
+    '#4CAF50', '#9C27B0', '#F44336', '#3F51B5', '#00BCD4', '#8BC34A',
     '#FF9800', '#795548', '#607D8B'
   ];
   const pieData = reportData.department_costs.map(d => ({
@@ -48,7 +48,7 @@ export default function Dashboard() {
 
   return (
     <div className="container-fluid" style={{ backgroundColor: "#f8f9fa", minHeight: "100vh", padding: "20px" }}>
-      <h3 className="mb-4 fw-bold">Tổng quan (Dashboard)</h3>
+      <h3 className="mb-4 fw-bold">Tổng quan</h3>
 
       {/* Row 1: Các thẻ thống kê nhỏ */}
       <div className="row mb-4">
@@ -147,7 +147,7 @@ export default function Dashboard() {
           <div className="card border-0 shadow-sm rounded-3 h-100">
             <div className="card-body">
               <h6 className="fw-bold mb-4">Xu hướng Quỹ lương 6 tháng qua</h6>
-              
+
               <div style={{ width: '100%', height: 300 }}>
                 <ResponsiveContainer>
                   <BarChart
@@ -161,7 +161,7 @@ export default function Dashboard() {
                   >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                    <YAxis 
+                    <YAxis
                       tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
                       axisLine={false}
                       tickLine={false}
